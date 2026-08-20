@@ -267,6 +267,7 @@ def create_quiz_pdf(title_subject, topic, diff, print_mode, quiz_text):
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
         import urllib.request
+        import re
     except ImportError:
         raise Exception("reportlab がインストールされていません ('pip install reportlab')")
 
@@ -274,7 +275,6 @@ def create_quiz_pdf(title_subject, topic, diff, print_mode, quiz_text):
     font_name = "NotoSansJP"
     font_filename = "NotoSansJP-Regular.ttf"
 
-    # サーバー上にフォントがなければGoogle Fontsから自動ダウンロード
     if not os.path.exists(font_filename):
         try:
             url = "https://github.com/google/fonts/raw/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf"
@@ -282,14 +282,12 @@ def create_quiz_pdf(title_subject, topic, diff, print_mode, quiz_text):
         except Exception:
             pass
 
-    # フォントの登録（失敗時はフォールバック）
     if os.path.exists(font_filename):
         try:
             pdfmetrics.registerFont(TTFont(font_name, font_filename))
         except Exception:
             font_name = "Helvetica"
     else:
-        # ローカルPC用のフォールバック
         font_paths = [
             "C:\\Windows\\Fonts\\msgothic.ttc",
             "C:\\Windows\\Fonts\\meiryo.ttc",
@@ -320,6 +318,9 @@ def create_quiz_pdf(title_subject, topic, diff, print_mode, quiz_text):
     ]
 
     clean_text = sanitize_text(quiz_text)
+    # ★ $マーク（数式記号）を除去して文字だけに整形する処理を追加
+    clean_text = re.sub(r'\$([^\$]+)\$', r'\1', clean_text)
+    
     lines = clean_text.split('\n')
     
     for line in lines:
