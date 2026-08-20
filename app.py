@@ -266,23 +266,43 @@ def create_quiz_pdf(title_subject, topic, diff, print_mode, quiz_text):
         from reportlab.lib import colors
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
+        import urllib.request
     except ImportError:
         raise Exception("reportlab がインストールされていません ('pip install reportlab')")
 
-    font_name = "Helvetica"
-    font_paths = [
-        "C:\\Windows\\Fonts\\msgothic.ttc",
-        "C:\\Windows\\Fonts\\meiryo.ttc",
-        "/System/Library/Fonts/Hiragino Sans GB.ttc",
-        "/usr/share/fonts/truetype/takao-gothic/TakaoPGothic.ttf"
-    ]
-    for p in font_paths:
-        if os.path.exists(p):
-            try:
-                pdfmetrics.registerFont(TTFont("JFont", p, subfontIndex=0))
-                font_name = "JFont"
-                break
-            except Exception: pass
+    # --- 日本語フォントの自動準備 ---
+    font_name = "NotoSansJP"
+    font_filename = "NotoSansJP-Regular.ttf"
+
+    # サーバー上にフォントがなければGoogle Fontsから自動ダウンロード
+    if not os.path.exists(font_filename):
+        try:
+            url = "https://github.com/google/fonts/raw/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf"
+            urllib.request.urlretrieve(url, font_filename)
+        except Exception:
+            pass
+
+    # フォントの登録（失敗時はフォールバック）
+    if os.path.exists(font_filename):
+        try:
+            pdfmetrics.registerFont(TTFont(font_name, font_filename))
+        except Exception:
+            font_name = "Helvetica"
+    else:
+        # ローカルPC用のフォールバック
+        font_paths = [
+            "C:\\Windows\\Fonts\\msgothic.ttc",
+            "C:\\Windows\\Fonts\\meiryo.ttc",
+            "/System/Library/Fonts/Hiragino Sans GB.ttc",
+            "/usr/share/fonts/truetype/takao-gothic/TakaoPGothic.ttf"
+        ]
+        for p in font_paths:
+            if os.path.exists(p):
+                try:
+                    pdfmetrics.registerFont(TTFont("JFont", p, subfontIndex=0))
+                    font_name = "JFont"
+                    break
+                except Exception: pass
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
