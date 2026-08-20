@@ -1,0 +1,161 @@
+import tkinter as tk
+
+# -----------------
+# テストデータ
+# -----------------
+
+schedule = {
+    "月曜日": [
+        {
+            "subject": "数学",
+            "room": "2年2組",
+            "homework": "問題集P12"
+        },
+        {
+            "subject": "英語",
+            "room": "2年3組",
+            "homework": "英単語20個"
+        },
+        {
+            "subject": "理科",
+            "room": "理科室",
+            "homework": "レポート作成"
+        }
+    ]
+}
+
+# -----------------
+# 詳細画面
+# -----------------
+
+def show_detail(data):
+
+    # メイン画面を隠す
+    main_frame.pack_forget()
+
+    # 詳細画面を初期化
+    for widget in detail_frame.winfo_children():
+        widget.destroy()
+
+    detail_frame.pack(fill="both", expand=True)
+
+    # 戻るボタン
+    back_button = tk.Button(
+        detail_frame,
+        text="← 戻る",
+        font=("Arial", 14),
+        command=back_to_main
+    )
+    back_button.pack(pady=10)
+
+    # 教科名
+    title = tk.Label(
+        detail_frame,
+        text=data["subject"],
+        font=("Arial", 24, "bold")
+    )
+    title.pack(pady=20)
+
+def start_edit():
+
+    # 教室入力欄
+    room_entry.delete(0, tk.END)
+    room_entry.insert(0, data["room"])
+
+    # 宿題入力欄
+    homework_entry.delete(0, tk.END)
+    homework_entry.insert(0, data["homework"])
+
+    
+    for widget in lesson_frame.winfo_children():
+        widget.destroy()
+
+    day = day_var.get()
+
+    if day == "":
+        return
+
+    lessons = schedule[day]
+
+    for i, lesson in enumerate(lessons):
+
+        btn = tk.Button(
+            lesson_frame,
+            text=f"{i+1}時間目\n{lesson['subject']}",
+            font=("Arial", 18),
+            height=4,
+            command=lambda d=lesson: show_detail(d)
+        )
+
+        btn.pack(
+            fill="x",
+            padx=15,
+            pady=10
+        )
+
+
+# -----------------
+# メイン画面
+# -----------------
+
+root = tk.Tk()
+
+root.title("学校アプリ")
+root.geometry("430x850")
+
+main_frame = tk.Frame(root)
+main_frame.pack(fill="both", expand=True)
+
+detail_frame = tk.Frame(root)
+
+title = tk.Label(
+    main_frame,
+    text="時間割",
+    font=("Arial", 22, "bold")
+)
+
+title.pack(pady=20)
+
+day_var = tk.StringVar(
+    value="月曜日"
+)
+
+# -----------------
+# 戻る
+# -----------------
+
+def back_to_main():
+
+    detail_frame.pack_forget()
+
+    main_frame.pack(
+        fill="both",
+        expand=True
+    )
+
+
+# -----------------
+# 時間割読み込み
+# -----------------
+
+def load_day():
+
+    day_menu = tk.OptionMenu(
+    main_frame,
+    day_var,
+    "月曜日",
+    command=lambda x: load_day()
+)
+
+day_menu.pack(pady=10)
+
+lesson_frame = tk.Frame(main_frame)
+
+lesson_frame.pack(
+    fill="both",
+    expand=True
+)
+
+load_day()
+
+root.mainloop()

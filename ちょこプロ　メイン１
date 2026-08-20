@@ -1,0 +1,135 @@
+import json
+import osschedule = []
+if os.path.exists("schedule.json"):
+    with open("schedule.json", "r", encoding="utf-8") as file:
+        schedule = json.load(file)
+else:
+    schedule = []
+subjects = {
+    "1": {"name": "国語", "item": ["国語の教科書"]},
+    "2": {"name": "数学", "item": ["数学の教科書"]},
+    "3": {"name": "英語", "item": ["英語の教科書"]},
+    "4": {"name": "理科", "item": ["理科の教科書"]},
+    "5": {"name": "社会", "item": ["地理の教科書"]},
+    "6": {"name": "音楽", "item": ["音楽の教科書"]},
+    "7": {"name": "美術", "item": ["美術の教科書"]},
+    "8": {"name": "保健体育", "item": ["保健体育の教科書"]},
+    "9": {"name": "技術・家庭", "item": ["技術・家庭の教科書"]}
+}
+
+while True:
+    print("\n=== 中学校の予定＆持ち物管理アプリ ===")
+    print("1. 通常モード（6時間）")
+    print("2. 水曜日モード（5時間）")
+    print("3. 予定を見る")
+    print("4. 持ち物を追加する")
+    print("5. すべて削除")
+    print("6. 終了")
+
+    choice = input("番号を選んでください：")
+
+    # 通常モード（6時間）
+    if choice == "1":
+        schedule = []
+        print("\n--- 6時間分の授業を入力します ---")
+
+        for period in range(1, 7):
+            print(f"\n{period}時間目を選んでください")
+
+            for key, value in subjects.items():
+                print(f"{key}. {value['name']}")
+
+            subject_choice = input("教科番号を入力してください：")
+
+            if subject_choice in subjects:
+                selected = subjects[subject_choice]
+
+                schedule.append({
+                    "period": period,
+                    "subject": selected["name"],
+                    "items": selected["item"].copy()
+                })
+
+                print(f"{selected['name']} を追加しました！")
+
+            else:
+                print("正しい番号を入力してください")
+
+    # 水曜日モード（5時間）
+    elif choice == "2":
+        schedule = []
+        print("\n--- 水曜日モード（5時間） ---")
+
+        for period in range(1, 6):
+            print(f"\n{period}時間目を選んでください")
+
+            for key, value in subjects.items():
+                print(f"{key}. {value['name']}")
+
+            subject_choice = input("教科番号を入力してください：")
+
+            if subject_choice in subjects:
+                selected = subjects[subject_choice]
+
+                schedule.append({
+                    "period": period,
+                    "subject": selected["name"],
+                    "items": selected["item"].copy()
+                })
+
+                print(f"{selected['name']} を追加しました！")
+
+            else:
+                print("正しい番号を入力してください")
+
+    # 予定を見る
+    elif choice == "3":
+        print("\n--- 明日の授業＆持ち物一覧 ---")
+
+        if len(schedule) == 0:
+            print("まだ授業はありません")
+        else:
+            for data in schedule:
+                item_text = "、".join(data["items"])
+                print(
+                    f"{data['period']}時間目："
+                    f"{data['subject']} / 持ち物：{item_text}"
+                )
+
+    # 持ち物を追加する
+    elif choice == "4":
+        print("\n--- 持ち物を追加する ---")
+
+        if len(schedule) == 0:
+            print("先に授業を入力してください")
+        else:
+            for data in schedule:
+                print(f"{data['period']}時間目：{data['subject']}")
+
+            number = int(input("追加したい時間目の番号を入力してください："))
+
+            found = False
+
+            for data in schedule:
+                if data["period"] == number:
+                    new_item = input("追加する持ち物を入力してください：")
+                    data["items"].append(new_item)
+                    print(f"{new_item} を追加しました！")
+                    found = True
+                    break
+
+            if not found:
+                print("その時間目はありません")
+
+    # すべて削除
+    elif choice == "5":
+        schedule = []
+        print("すべての予定を削除しました！")
+
+    # 終了
+    elif choice == "6":
+        print("アプリを終了します")
+        break
+
+    else:
+        print("1〜6の番号を入力してください")

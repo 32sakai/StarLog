@@ -1,0 +1,531 @@
+import tkinter as tk
+from tkinter import messagebox
+import json
+import os
+import datetime
+
+# =========================
+# 保存ファイル
+# =========================
+FILE_NAME = "school_full_app.json"
+
+# =========================
+# 教科データ
+# =========================
+subjects = {
+    "国語": {
+        "item": ["国語の教科書"],
+        "room": "2年1組",
+        "homework": "漢字練習",
+        "test": "来週 小テスト",
+        "submission": "ワーク提出"
+    },
+
+    "数学": {
+        "item": ["数学の教科書"],
+        "room": "2年2組",
+        "homework": "問題集 P12",
+        "test": "金曜日 単元テスト",
+        "submission": "ノート提出"
+    },
+
+    "英語": {
+        "item": ["英語の教科書"],
+        "room": "2年3組",
+        "homework": "英単語20個",
+        "test": "月曜日 単語テスト",
+        "submission": "プリント提出"
+    },
+
+    "理科": {
+        "item": ["理科の教科書"],
+        "room": "理科室",
+        "homework": "実験レポート",
+        "test": "木曜日 小テスト",
+        "submission": "レポート提出"
+    },
+
+    "社会": {
+        "item": ["地理の教科書"],
+        "room": "2年1組",
+        "homework": "地図問題",
+        "test": "来週 地理テスト",
+        "submission": "プリント提出"
+    },
+
+    "保健体育": {
+        "item": ["体操服"],
+        "room": "体育館",
+        "homework": "ストレッチ確認",
+        "test": "実技テストあり",
+        "submission": "健康観察カード"
+    },
+
+    "技術": {
+        "item": ["技術の教科書"],
+        "room": "技術室",
+        "homework": "作品の設計図",
+        "test": "作品チェック",
+        "submission": "設計プリント"
+    },
+
+    "家庭": {
+        "item": ["家庭科の教科書"],
+        "room": "家庭科室",
+        "homework": "調理計画を書く",
+        "test": "調理実習あり",
+        "submission": "ワーク提出"
+    },
+
+    "美術": {
+        "item": ["美術の教科書"],
+        "room": "美術室",
+        "homework": "作品の下書き",
+        "test": "作品提出日",
+        "submission": "作品提出"
+    },
+
+    "音楽": {
+        "item": ["音楽の教科書"],
+        "room": "音楽室",
+        "homework": "歌詞を覚える",
+        "test": "リコーダーテスト",
+        "submission": "楽譜提出"
+    },
+
+    "総合": {
+        "item": ["ファイル"],
+        "room": "2年1組",
+        "homework": "調べ学習",
+        "test": "発表準備",
+        "submission": "発表プリント"
+    },
+
+    "学活": {
+        "item": ["連絡帳"],
+        "room": "2年1組",
+        "homework": "明日の予定確認",
+        "test": "なし",
+        "submission": "提出物チェック"
+    }
+}
+
+# =========================
+# 曜日ごとの保存
+# =========================
+schedule = {
+    "月曜日": [],
+    "火曜日": [],
+    "水曜日": [],
+    "木曜日": [],
+    "金曜日": []
+}
+
+# =========================
+# 保存機能
+# =========================
+def save_data():
+    with open(FILE_NAME, "w", encoding="utf-8") as file:
+        json.dump(schedule, file, ensure_ascii=False, indent=4)
+
+def load_data():
+    global schedule
+
+    if os.path.exists(FILE_NAME):
+        with open(FILE_NAME, "r", encoding="utf-8") as file:
+            schedule = json.load(file)
+
+# =========================
+# 今日の曜日を取得
+# =========================
+def get_today_day():
+    days = [
+        "月曜日",
+        "火曜日",
+        "水曜日",
+        "木曜日",
+        "金曜日",
+        "土曜日",
+        "日曜日"
+    ]
+
+    today = datetime.date.today()
+    return days[today.weekday()]
+
+# =========================
+# 一覧更新
+# =========================
+def update_list():
+    listbox.delete(0, tk.END)
+
+    day = day_var.get()
+
+    if day == "":
+        return
+
+    for data in schedule[day]:
+        item_text = "、".join(data["items"])
+
+        listbox.insert(
+            tk.END,
+            f"{data['period']}時間目："
+            f"{data['subject']} / 持ち物：{item_text}"
+        )
+
+# =========================
+# 授業追加
+# =========================
+def add_subject():
+    day = day_var.get()
+    subject = subject_var.get()
+
+    if day == "":
+        messagebox.showwarning("注意", "曜日を選んでください")
+        return
+
+    if subject == "":
+        messagebox.showwarning("注意", "教科を選んでください")
+        return
+
+    if day == "水曜日":
+        max_period = 5
+    else:
+        max_period = 6
+
+    if len(schedule[day]) >= max_period:
+        messagebox.showwarning(
+            "注意",
+            f"{day} は {max_period}時間までです"
+        )
+        return
+
+    period = len(schedule[day]) + 1
+
+    schedule[day].append({
+        "period": period,
+        "subject": subject,
+        "items": subjects[subject]["item"].copy()
+    })
+
+    save_data()
+    update_list()
+
+    messagebox.showinfo(
+        "追加完了",
+        f"{day} の {period}時間目に\n"
+        f"{subject} を追加しました！"
+    )
+
+# =========================
+# 持ち物追加
+# =========================
+def add_item():
+    day = day_var.get()
+
+    if day == "":
+        messagebox.showwarning("注意", "曜日を選んでください")
+        return
+
+    selected = listbox.curselection()
+
+    if not selected:
+        messagebox.showwarning("注意", "授業を選んでください")
+        return
+
+    new_item = item_entry.get()
+
+    if new_item == "":
+        messagebox.showwarning("注意", "持ち物を入力してください")
+        return
+
+    index = selected[0]
+    schedule[day][index]["items"].append(new_item)
+
+    item_entry.delete(0, tk.END)
+
+    save_data()
+    update_list()
+
+    messagebox.showinfo(
+        "追加完了",
+        f"{new_item} を追加しました！"
+    )
+
+# =========================
+# 詳細を見る
+# =========================
+def show_detail():
+    day = day_var.get()
+
+    if day == "":
+        messagebox.showwarning("注意", "曜日を選んでください")
+        return
+
+    selected = listbox.curselection()
+
+    if not selected:
+        messagebox.showwarning("注意", "授業を選んでください")
+        return
+
+    index = selected[0]
+    selected_data = schedule[day][index]
+    subject = selected_data["subject"]
+    base_data = subjects[subject]
+
+    detail_window = tk.Toplevel(root)
+    detail_window.title(f"{subject} の詳細")
+    detail_window.geometry("450x400")
+
+    tk.Label(
+        detail_window,
+        text=f"【{subject}】",
+        font=("Arial", 16, "bold")
+    ).pack(pady=10)
+
+    tk.Label(
+        detail_window,
+        text=f"持ち物：{'、'.join(selected_data['items'])}",
+        font=("Arial", 12)
+    ).pack(pady=5)
+
+    tk.Label(
+        detail_window,
+        text=f"教室：{base_data['room']}",
+        font=("Arial", 12)
+    ).pack(pady=5)
+
+    tk.Label(
+        detail_window,
+        text=f"宿題：{base_data['homework']}",
+        font=("Arial", 12)
+    ).pack(pady=5)
+
+    tk.Label(
+        detail_window,
+        text=f"テスト予定：{base_data['test']}",
+        font=("Arial", 12)
+    ).pack(pady=5)
+
+    tk.Label(
+        detail_window,
+        text=f"提出物：{base_data['submission']}",
+        font=("Arial", 12)
+    ).pack(pady=5)
+
+# =========================
+# 詳細を編集
+# =========================
+def edit_detail():
+    day = day_var.get()
+
+    if day == "":
+        messagebox.showwarning("注意", "曜日を選んでください")
+        return
+
+    selected = listbox.curselection()
+
+    if not selected:
+        messagebox.showwarning("注意", "授業を選んでください")
+        return
+
+    index = selected[0]
+    selected_data = schedule[day][index]
+    subject = selected_data["subject"]
+
+    data = subjects[subject]
+
+    edit_window = tk.Toplevel(root)
+    edit_window.title(f"{subject} の詳細編集")
+    edit_window.geometry("400x450")
+
+    tk.Label(edit_window, text="教室").pack()
+    room_entry = tk.Entry(edit_window, width=30)
+    room_entry.pack()
+    room_entry.insert(0, data["room"])
+
+    tk.Label(edit_window, text="宿題").pack()
+    homework_entry = tk.Entry(edit_window, width=30)
+    homework_entry.pack()
+    homework_entry.insert(0, data["homework"])
+
+    tk.Label(edit_window, text="テスト予定").pack()
+    test_entry = tk.Entry(edit_window, width=30)
+    test_entry.pack()
+    test_entry.insert(0, data["test"])
+
+    tk.Label(edit_window, text="提出物").pack()
+    submission_entry = tk.Entry(edit_window, width=30)
+    submission_entry.pack()
+    submission_entry.insert(0, data["submission"])
+
+    def save_detail():
+        data["room"] = room_entry.get()
+        data["homework"] = homework_entry.get()
+        data["test"] = test_entry.get()
+        data["submission"] = submission_entry.get()
+
+        save_data()
+
+        messagebox.showinfo(
+            "保存完了",
+            f"{subject} の詳細を更新しました！"
+        )
+
+        edit_window.destroy()
+
+    save_button = tk.Button(
+        edit_window,
+        text="保存する",
+        command=save_detail,
+        font=("Arial", 12),
+        width=15
+    )
+    save_button.pack(pady=20)
+
+# =========================
+# 削除
+# =========================
+def delete_subject():
+    day = day_var.get()
+
+    if day == "":
+        messagebox.showwarning("注意", "曜日を選んでください")
+        return
+
+    selected = listbox.curselection()
+
+    if not selected:
+        messagebox.showwarning("注意", "削除する授業を選んでください")
+        return
+
+    index = selected[0]
+    removed = schedule[day].pop(index)
+
+    for i, data in enumerate(schedule[day], start=1):
+        data["period"] = i
+
+    save_data()
+    update_list()
+
+    messagebox.showinfo(
+        "削除完了",
+        f"{removed['subject']} を削除しました！"
+    )
+
+# =========================
+# GUI作成
+# =========================
+load_data()
+
+root = tk.Tk()
+root.title("学校用 完全版アプリ")
+root.geometry("430x850")
+root.configure(bg="lightblue")
+
+today_day = get_today_day()
+
+today_label = tk.Label(
+    root,
+    text=f"今日は {today_day} です",
+    font=("Arial", 14, "bold"),
+    bg="lightblue"
+)
+today_label.pack(pady=10)
+
+title_label = tk.Label(
+    root,
+    text="📚 授業＆持ち物管理アプリ 🎒",
+    font=("Arial", 18, "bold"),
+    bg="lightblue"
+)
+title_label.pack(pady=10)
+
+day_var = tk.StringVar()
+
+day_menu = tk.OptionMenu(
+    root,
+    day_var,
+    "月曜日",
+    "火曜日",
+    "水曜日",
+    "木曜日",
+    "金曜日",
+    command=lambda x: update_list()
+)
+day_menu.pack(pady=10)
+
+subject_var = tk.StringVar()
+
+subject_menu = tk.OptionMenu(
+    root,
+    subject_var,
+    *subjects.keys()
+)
+subject_menu.pack(pady=10)
+
+add_button = tk.Button(
+    root,
+    text="📚 授業を追加",
+    command=add_subject,
+    font=("Arial", 12),
+    width=20,
+    height=2
+)
+add_button.pack(pady=5)
+
+listbox = tk.Listbox(
+    root,
+    width=60,
+    height=12,
+    font=("Arial", 12)
+)
+listbox.pack(pady=10)
+
+item_entry = tk.Entry(
+    root,
+    width=30,
+    font=("Arial", 12)
+)
+item_entry.pack(pady=5)
+
+item_button = tk.Button(
+    root,
+    text="🎒 持ち物を追加",
+    command=add_item,
+    font=("Arial", 12),
+    width=20,
+    height=2
+)
+item_button.pack(pady=5)
+
+detail_button = tk.Button(
+    root,
+    text="📖 詳細を見る",
+    command=show_detail,
+    font=("Arial", 12),
+    width=20,
+    height=2
+)
+detail_button.pack(pady=5)
+
+edit_button = tk.Button(
+    root,
+    text="✏ 詳細を編集",
+    command=edit_detail,
+    font=("Arial", 12),
+    width=20,
+    height=2
+)
+edit_button.pack(pady=5)
+
+delete_button = tk.Button(
+    root,
+    text="🗑 選んだ授業を削除",
+    command=delete_subject,
+    font=("Arial", 12),
+    width=20,
+    height=2
+)
+delete_button.pack(pady=5)
+
+root.mainloop()

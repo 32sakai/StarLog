@@ -1,0 +1,150 @@
+def show_detail(data):
+
+    page = tk.Toplevel(root)
+    page.title(data["subject"])
+    page.geometry("400x700")
+
+    # タイトルエリア
+    top_frame = tk.Frame(page)
+    top_frame.pack(fill="x", pady=10)
+
+    title = tk.Label(
+        top_frame,
+        text=f"📚 {data['subject']}",
+        font=("Arial", 20, "bold")
+    )
+    title.pack(side="left", padx=10)
+
+    # 表示モード
+    view_frame = tk.Frame(page)
+
+    # 編集モード
+    edit_frame = tk.Frame(page)
+
+    # -------------------
+    # 表示モード
+    # -------------------
+
+    room_title = tk.Label(
+        view_frame,
+        text="🏫 教室",
+        font=("Arial", 14, "bold")
+    )
+
+    room_title.pack(pady=(20, 5))
+
+    room_label = tk.Label(
+        view_frame,
+        text=data["room"],
+        font=("Arial", 14)
+    )
+
+    room_label.pack()
+
+    homework_title = tk.Label(
+        view_frame,
+        text="📝 宿題",
+        font=("Arial", 14, "bold")
+    )
+
+    homework_title.pack(pady=(20, 5))
+
+    homework_label = tk.Label(
+        view_frame,
+        text=data["homework"],
+        font=("Arial", 14)
+    )
+
+    homework_label.pack()
+
+    view_frame.pack(fill="both", expand=True)
+
+    # -------------------
+    # 編集モード
+    # -------------------
+
+    tk.Label(
+        edit_frame,
+        text="教室"
+    ).pack(pady=5)
+
+    room_entry = tk.Entry(
+        edit_frame,
+        width=30
+    )
+
+    room_entry.insert(0, data["room"])
+
+    room_entry.pack()
+
+    tk.Label(
+        edit_frame,
+        text="宿題"
+    ).pack(pady=5)
+
+    homework_entry = tk.Entry(
+        edit_frame,
+        width=30
+    )
+
+    homework_entry.insert(
+        0,
+        data["homework"]
+    )
+
+    homework_entry.pack()
+
+    def finish_edit():
+
+        data["room"] = room_entry.get()
+        data["homework"] = homework_entry.get()
+
+        room_label.config(
+            text=data["room"]
+        )
+
+        homework_label.config(
+            text=data["homework"]
+        )
+
+        edit_frame.pack_forget()
+
+        view_frame.pack(
+            fill="both",
+            expand=True
+        )
+
+    # -------------------
+    # 編集ボタン
+    # -------------------
+
+    def start_edit():
+
+        view_frame.pack_forget()
+
+        edit_frame.pack(
+            fill="both",
+            expand=True
+        )
+
+    edit_button = tk.Button(
+        top_frame,
+        text="編集",
+        command=start_edit
+    )
+
+    edit_button.pack(
+        side="right",
+        padx=10
+    )
+
+    finish_button = tk.Button(
+        edit_frame,
+        text="完了",
+        font=("Arial", 14),
+        command=finish_edit
+    )
+
+    finish_button.pack(
+        pady=20
+    )
