@@ -318,9 +318,17 @@ def create_quiz_pdf(title_subject, topic, diff, print_mode, quiz_text):
     ]
 
     clean_text = sanitize_text(quiz_text)
-    # ★ $マーク（数式記号）を除去して文字だけに整形する処理を追加
+
+    # ★ LaTeX記号・特殊コマンドの整形処理
+    # 1. \text{...} を中の文字だけに変換
+    clean_text = re.sub(r'\\text\{([^}]+)\}', r'\1', clean_text)
+    # 2. \times や \div などの数式コマンドを通常の記号に置換
+    clean_text = clean_text.replace(r'\times', '×').replace(r'\div', '÷').replace(r'\pm', '±')
+    # 3. 不要な \left, \right 装飾を削除
+    clean_text = re.sub(r'\\(left|right)', '', clean_text)
+    # 4. $...$ の囲み記号を取り除く
     clean_text = re.sub(r'\$([^\$]+)\$', r'\1', clean_text)
-    
+
     lines = clean_text.split('\n')
     
     for line in lines:
