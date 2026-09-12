@@ -327,7 +327,7 @@ current_api_key = os.environ.get("GEMINI_API_KEY", "")
 if not current_api_key and "GEMINI_API_KEY" in st.secrets:
     current_api_key = st.secrets["GEMINI_API_KEY"]
 
-def call_gemini_api(contents, model_name="gemini-2.5-flash"):
+def call_gemini_api(contents, model_name="gemini-3.6-flash"):
     """Gemini APIを呼び出す関数"""
     if not HAS_GEMINI:
         return "エラー: google-generativeai パッケージがインストールされていません。"
