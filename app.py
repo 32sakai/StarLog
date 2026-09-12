@@ -6,21 +6,18 @@ import io
 from datetime import datetime
 import streamlit as st
 
-# PIL (Pillow) の読み込みチェック
 try:
     from PIL import Image
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
 
-# Google GenAI / Generative AI SDK の読み込みチェック
 try:
     import google.generativeai as genai
     HAS_GEMINI = True
 except ImportError:
     HAS_GEMINI = False
 
-# ReportLab (PDF出力) の読み込みチェック
 try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -30,13 +27,12 @@ except ImportError:
     HAS_REPORTLAB = False
 
 st.set_page_config(
-    page_title="StarLog - AI手書き添削 & 学習アシスタント",
+    page_title="StarLog　学習ナビ",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# カスタムCSSの適用
 st.markdown("""
 <style>
     /* メインヘッダー */
@@ -91,7 +87,7 @@ st.markdown("""
         margin-bottom: 4px;
     }
 
-    /* ノートブック連携通知バナー */
+    /* 連携通知バナー */
     .linked-banner {
         background-color: #EFF6FF;
         border-left: 4px solid #3B82F6;
@@ -105,26 +101,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 query_params = st.query_params
-from_app = query_params.get("from", "")
 
-if from_app == "notebook":
-    # 初回アクセス時のみパラメータを保持し、画面上に連携通知を表示
-    if "notebook_linked" not in st.session_state:
-        st.session_state["notebook_linked"] = True
-        st.session_state["default_subject"] = query_params.get("subject", "数学")
-        st.session_state["default_unit"] = query_params.get("unit", "二次関数とグラフ")
-        
-        # 数値型変換エラーの防止
-        try:
-            st.session_state["default_pts"] = int(query_params.get("pts", 0))
-        except (ValueError, TypeError):
-            st.session_state["default_pts"] = 0
+if "subject" in query_params or "topic" in query_params or "school_type" in query_params:
+    if "school_type" in query_params:
+        st.session_state["school_type_val"] = query_params["school_type"]
+    if "subject" in query_params:
+        st.session_state["subject_val"] = query_params["subject"]
+    if "topic" in query_params:
+        st.session_state["topic_val"] = query_params["topic"]
+    if "grade" in query_params:
+        st.session_state["grade_val"] = query_params["grade"]
+    if "difficulty" in query_params:
+        st.session_state["difficulty_val"] = query_params["difficulty"]
 
-        st.toast(
-            f"📓 Notebookから連携されました！\n"
-            f"（教科: {st.session_state['default_subject']} / 単元: {st.session_state['default_unit']} / 獲得pt: {st.session_state['default_pts']}）",
-            icon="🚀"
-        )
+    if not st.session_state.get("notebook_linked_notified", False):
+        st.toast("🔗 Notebookからの連携データを受信しました！", icon="✨")
+        st.session_state["notebook_linked_notified"] = True
 
 USERS_FILE = "users_db.json"
 HISTORY_FILE = "quiz_history.json"
@@ -148,7 +140,7 @@ def save_registered_users(users_list):
         st.error(f"ユーザー情報の保存に失敗しました: {e}")
 
 def load_history():
-    """過去問・作成テスト履歴をローカルJSONから読み込み"""
+    """作成テスト履歴をローカルJSONから読み込み"""
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -161,22 +153,12 @@ def load_history():
             "created_at": "2026-09-10 14:00",
             "created_by": "ゲストユーザー",
             "school_type": "中学生",
-            "subject": "数学",
-            "topic": "二次関数とグラフ",
+            "grade": "中2",
+            "subject": "理科",
+            "topic": "植物のつくりと働き",
             "difficulty": "標準",
-            "quiz_text": "【問題1】y = x^2 - 4x + 3 の頂点を求めよ。\n【問題2】この放物線とx軸の交点の座標を求めよ。",
-            "answers": "【解答1】頂点 (2, -1)\n【解答2】(1, 0), (3, 0)"
-        },
-        {
-            "id": "quiz_002",
-            "created_at": "2026-09-11 10:30",
-            "created_by": "ゲストユーザー",
-            "school_type": "中学生",
-            "subject": "英語",
-            "topic": "関係代名詞の理解",
-            "difficulty": "標準",
-            "quiz_text": "【問題1】以下の2文を関係代名詞を用いて1文にしなさい。\nThis is the book. I bought it yesterday.",
-            "answers": "【解答1】This is the book which [that] I bought yesterday."
+            "quiz_text": "【問題1】顕微鏡でプレパラートを観察するとき、対物レンズを倍率の低いものから高いものに変えると、視野の明るさと範囲はどうなりますか。\n【問題2】葉の表皮にある気孔の主な役割と、気孔が開閉する仕組みを説明しなさい。",
+            "answers": "【解答1】視野は暗くなり、観察できる範囲は狭くなる。\n【解答2】蒸散や気体の出し入れを行う。孔辺細胞の体積変化により開閉する。"
         }
     ]
 
@@ -198,16 +180,12 @@ def delete_history_item(item_id: str) -> bool:
     return False
 
 def sanitize_text(text: str) -> str:
-    """LaTeX表記や数式コマンドを一般的なプレーンテキストに整形"""
+    """LaTeX表記や特殊文字を整形"""
     if not text:
         return ""
-    # 分数 \frac{分子}{分母} の変換
     clean = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'\1 / \2', text)
-    # \text{...} の除去
     clean = re.sub(r'\\text\{([^}]+)\}', r'\1', clean)
-    # LaTeXインライン数式 $...$ の除去
     clean = re.sub(r'\$([^\$]+)\$', r'\1', clean)
-    # 演算記号の置換
     clean = (
         clean.replace(r'\times', '×')
         .replace(r'\div', '÷')
@@ -217,7 +195,7 @@ def sanitize_text(text: str) -> str:
     return clean
 
 def extract_json_from_text(text: str) -> dict:
-    """Gemini APIからの返答からJSON構文を抽出・パースする補助関数"""
+    """Gemini APIからの返答からJSONを抽出"""
     if not text:
         return {}
     if isinstance(text, dict):
@@ -236,7 +214,6 @@ def extract_json_from_text(text: str) -> dict:
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
-        st.warning("⚠️ AIレスポンスを完全なJSONとして解釈できませんでした。テキスト形式で表示します。")
         return {
             "total_score": 0,
             "max_score": 100,
@@ -244,8 +221,8 @@ def extract_json_from_text(text: str) -> dict:
             "overall_feedback": text
         }
 
-def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
-    """ReportLabを用いた日本語PDF出力関数（数式整形つき）"""
+def create_quiz_pdf(subject, topic, difficulty, grade, quiz_text):
+    """ReportLabを用いた日本語PDF出力機能"""
     if not HAS_REPORTLAB:
         raise Exception("reportlab がインストールされていません。`pip install reportlab` を実行してください。")
 
@@ -271,7 +248,7 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     )
 
     story = []
-    header = f"<b>【 StarLog 学習プリント 】</b><br/>教科: {subject} | 単元: {topic} | 難易度: {difficulty}"
+    header = f"<b>【 StarLog 学習ナビ プリント 】</b><br/>教科: {subject} ({grade}) | 単元: {topic} | 難易度: {difficulty}"
     story.append(Paragraph(header, title_style))
     story.append(Spacer(1, 12))
 
@@ -286,7 +263,7 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     return buffer.getvalue()
 
 def parse_quiz_to_questions(quiz_text: str) -> list:
-    """テストテキストから個別設問（問題・解答）を抽出・パース"""
+    """テストテキストから問題と解説を分割抽出"""
     if not quiz_text:
         return []
     questions = []
@@ -324,7 +301,7 @@ def parse_quiz_to_questions(quiz_text: str) -> list:
                 questions.append({
                     "display_num": f"問題 {len(questions)+1}",
                     "body": block_str,
-                    "explanation": "正解・解説の詳細は問題全体を参照してください。",
+                    "explanation": "問題全体の模範解答を参照してください。",
                     "parent_context": ""
                 })
 
@@ -343,12 +320,15 @@ users_list = load_registered_users()
 if "current_user" not in st.session_state:
     st.session_state["current_user"] = users_list[0] if users_list else "ゲストユーザー"
 
+if "current_app_mode" not in st.session_state:
+    st.session_state["current_app_mode"] = "📝 問題作成"
+
 current_api_key = os.environ.get("GEMINI_API_KEY", "")
 if not current_api_key and "GEMINI_API_KEY" in st.secrets:
     current_api_key = st.secrets["GEMINI_API_KEY"]
 
 def call_gemini_api(contents, model_name="gemini-2.5-flash"):
-    """Gemini APIを呼び出す汎用関数"""
+    """Gemini APIを呼び出す関数"""
     if not HAS_GEMINI:
         return "エラー: google-generativeai パッケージがインストールされていません。"
     
@@ -364,7 +344,7 @@ def call_gemini_api(contents, model_name="gemini-2.5-flash"):
     except Exception as e:
         return f"APIエラーが発生しました: {str(e)}"
 
-st.sidebar.title("🎓 AI テスト & 添削 Navi")
+st.sidebar.title("🎓 StarLog　学習ナビ")
 
 selected_user = st.sidebar.selectbox(
     "👤 アカウント切替",
@@ -377,10 +357,17 @@ test_mode = st.sidebar.checkbox("🧪 テストモード (API消費なし)", val
 
 st.sidebar.divider()
 
+menu_options = ["📝 問題作成", "📖 My参考書", "🌐 WEB一問一答", "📷 AI手書き添削", "📈 学習アナリティクス", "👤 マイページ"]
+
+# セッション状態でのメニュー制御
+default_nav_index = menu_options.index(st.session_state["current_app_mode"]) if st.session_state["current_app_mode"] in menu_options else 0
 app_mode = st.sidebar.radio(
     "メインメニュー",
-    ["📝 テスト作成", "📖 My参考書", "🌐 WEB一問一答", "📷 AI手書き添削", "📈 学習アナリティクス", "👤 マイページ"]
+    menu_options,
+    index=default_nav_index,
+    key="nav_radio"
 )
+st.session_state["current_app_mode"] = app_mode
 
 st.sidebar.divider()
 
@@ -393,72 +380,99 @@ if current_api_key or st.session_state.get("user_api_key"):
 else:
     st.sidebar.warning("⚠️ APIキー未設定")
 
-if app_mode == "📝 テスト作成":
-    st.markdown("<div class='main-header'>📝 AI自動テスト作成</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-text'>指定した教科・単元に基づき、AIが最適なテスト問題と模範解答を即座に生成します。</div>", unsafe_allow_html=True)
+if app_mode == "📝 問題作成":
+    st.markdown("<div class='main-header'>📝 StarLog　学習ナビ - AIテスト自動作成</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-text'>希望の校種・教科・単元に合わせて、AIがオリジナルテスト問題と模範解答を高速生成します。</div>", unsafe_allow_html=True)
 
-    if st.session_state.get("notebook_linked"):
+    if st.session_state.get("notebook_linked_notified"):
         st.markdown(
-            f"<div class='linked-banner'>📓 Notebookから連携中: "
-            f"教科「<b>{st.session_state.get('default_subject', '')}</b>」/ "
-            f"単元「<b>{st.session_state.get('default_unit', '')}</b>」が自動入力されています。</div>",
+            f"<div class='linked-banner'>✨ <b>Notebookからデータ連携中</b> "
+            f"（校種: {st.session_state.get('school_type_val', '')} / "
+            f"教科: {st.session_state.get('subject_val', '')} / "
+            f"学年: {st.session_state.get('grade_val', '')} / "
+            f"単元: {st.session_state.get('topic_val', '')}）</div>",
             unsafe_allow_html=True
         )
 
-    subject_options = ["数学", "英語", "国語", "理科", "社会"]
-    unit_dict = {
-        "数学": ["二次関数とグラフ", "図形の証明", "確率と統計", "微分・積分基礎", "ベクトルの応用"],
-        "英語": ["関係代名詞の理解", "仮定法過去", "不定詞と動名詞", "長文読解・段落構成"],
-        "国語": ["現代文・主張の把握", "古文・文法基礎", "漢文・訓読の基本"],
-        "理科": ["化学結合と反応速度", "力学の法則", "細胞分裂と遺伝", "地層と古生物"],
-        "社会": ["歴史・近現代史", "地理・気候帯と産業", "公民・日本国憲法"]
-    }
-
-    notebook_sub = st.session_state.get("default_subject", "数学")
-    notebook_unit = st.session_state.get("default_unit", "二次関数とグラフ")
-
-    sub_index = subject_options.index(notebook_sub) if notebook_sub in subject_options else 0
-
-    col1, col2 = st.columns(2)
-    with col1:
-        subject = st.selectbox("📚 教科・科目", subject_options, index=sub_index)
+    # 入力設定フォーム
+    st.markdown("### 🛠️ テスト作成設定")
     
-    current_units = unit_dict.get(subject, [notebook_unit])
-    unit_index = current_units.index(notebook_unit) if notebook_unit in current_units else 0
+    col_st, col_sb, col_gr = st.columns(3)
+    
+    school_type_list = ["小学生", "中学生", "高校生"]
+    default_st = st.session_state.get("school_type_val", "中学生")
+    idx_st = school_type_list.index(default_st) if default_st in school_type_list else 1
+    
+    with col_st:
+        school_type = st.selectbox("🏫 校種", school_type_list, index=idx_st)
 
-    with col2:
-        topic = st.selectbox("📖 単元・テーマ", current_units, index=unit_index)
+    # 校種に基づく教科リストの切り替え
+    if school_type == "小学生":
+        subject_list = ["国語", "算数", "理科", "社会", "英語"]
+        grade_list = ["小1", "小2", "小3", "小4", "小5", "小6"]
+    elif school_type == "中学生":
+        subject_list = ["国語", "数学", "理科", "社会", "英語"]
+        grade_list = ["中1", "中2", "中3"]
+    else:
+        subject_list = ["数学", "英語", "理科", "国語", "地歴公民"]
+        grade_list = ["高1", "高2", "高3"]
 
-    col3, col4, col5 = st.columns(3)
-    with col3:
-        difficulty = st.selectbox("🎯 難易度", ["標準", "基礎", "応用・発展"])
-    with col4:
-        q_count = st.slider("🔢 問題数", 1, 5, 2)
-    with col5:
-        q_type = st.multiselect("📝 問題形式", ["記述式", "計算問題", "選択式"], default=["記述式", "計算問題"])
+    default_sb = st.session_state.get("subject_val", subject_list[0])
+    idx_sb = subject_list.index(default_sb) if default_sb in subject_list else 0
 
-    custom_instructions = st.text_area("💡 AIへの追加指示・キーワード（任意）", placeholder="例: 途中式を必ず記述させる問題を含めてください。")
+    default_gr = st.session_state.get("grade_val", grade_list[0])
+    idx_gr = grade_list.index(default_gr) if default_gr in grade_list else 0
+
+    with col_sb:
+        subject = st.selectbox("📚 教科", subject_list, index=idx_sb)
+    with col_gr:
+        grade = st.selectbox("🎒 学年", grade_list, index=idx_gr)
+
+    col_fmt, col_num, col_diff = st.columns(3)
+    with col_fmt:
+        q_format = st.selectbox("📝 問題形式", ["混合", "選択式", "記述式"])
+    
+    with col_num:
+        # 数値入力タイプ（問題数）
+        num_questions = st.number_input("🔢 問題数", min_value=1, max_value=50, value=10, step=1)
+        # 21問以上で警告表示
+        if num_questions >= 21:
+            st.caption("⚠️ **注意:** 21問以上の生成は、AIの出力やPDF作成に時間がかかる場合があります。")
+
+    diff_list = ["基礎", "標準", "応用", "発展"]
+    default_diff = st.session_state.get("difficulty_val", "標準")
+    idx_diff = diff_list.index(default_diff) if default_diff in diff_list else 1
+
+    with col_diff:
+        difficulty = st.selectbox("🎯 難易度", diff_list, index=idx_diff)
+
+    default_topic = st.session_state.get("topic_val", "植物のつくり")
+    topic_input = st.text_input("📖 単元名・テーマ（作成してほしい単元を記入）", value=default_topic, placeholder="例: 植物のつくり / 二次関数とグラフ")
+    custom_instructions = st.text_area("💡 AIへの追加指示・指定（任意）", placeholder="例: 実験手順に関する記述問題を必ず含めてください。")
 
     if st.button("🚀 テスト問題を生成する", type="primary", use_container_width=True):
         if not test_mode and not (current_api_key or st.session_state.get("user_api_key")):
             st.error("APIキーが設定されていません。サイドバーまたはSecretsに設定してください。")
         else:
-            with st.spinner("AIが難易度と単元に合わせて問題を構成中..."):
+            with st.spinner("AIが指定された単元・難易度に合わせて問題と解説を生成中..."):
                 if test_mode:
                     time.sleep(1.2)
                     quiz_content = (
-                        f"【{subject} - {topic} 小テスト】（難易度: {difficulty}）\n\n"
-                        f"問1: {topic}における基本概念について説明しなさい。（20点）\n\n"
-                        f"問2: {topic}に関する実践計算を行い、答えを求めなさい。（30点）"
+                        f"【StarLog　学習ナビ 小テスト】（{school_type} {grade} {subject} / 難易度: {difficulty}）\n"
+                        f"単元: {topic_input}\n\n"
+                        f"【問題1】{topic_input}に関する基礎知識について説明しなさい。（20点）\n\n"
+                        f"【問題2】{topic_input}に関する応用問題について理由を添えて答えなさい。（30点）"
                     )
                     answer_content = (
                         "【模範解答と解説】\n"
-                        "問1: 定義に従って正しく記述されていること。\n"
-                        "問2: 途中計算を含めて X = 42 となれば正解。"
+                        "【解答1】用語および基本概念が正しく記載されていること。\n"
+                        "【解答2】現象のメカニズムを正しく論理立てて説明できていれば正解。"
                     )
                 else:
                     prompt = (
-                        f"教科: {subject}\n単元: {topic}\n難易度: {difficulty}\n問題数: {q_count}\n問題形式: {', '.join(q_type)}\n"
+                        f"アプリ名: StarLog　学習ナビ\n"
+                        f"対象: {school_type} ({grade})\n教科: {subject}\n単元名: {topic_input}\n"
+                        f"難易度: {difficulty}\n問題数: {num_questions}問\n形式: {q_format}\n"
                         f"追加指定: {custom_instructions}\n\n"
                         f"上記仕様に基づき、学生向けの小テスト問題(quiz_text)と模範解答・解説(answers)を作成してください。\n"
                         f"明確に【問題】セクションと【模範解答】セクションに分けて出力してください。"
@@ -477,40 +491,83 @@ if app_mode == "📝 テスト作成":
                     "id": f"quiz_{int(time.time())}",
                     "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
                     "created_by": st.session_state["current_user"],
-                    "school_type": "中学生",
-                    "subject": f"{subject}",
-                    "topic": f"{topic}",
+                    "school_type": school_type,
+                    "grade": grade,
+                    "subject": subject,
+                    "topic": topic_input,
                     "difficulty": difficulty,
                     "quiz_text": quiz_content,
                     "answers": answer_content
                 }
                 
+                # 自動保存（save_history）
                 history = load_history()
                 history.insert(0, new_quiz)
                 save_history(history)
+                st.session_state["last_generated_quiz"] = new_quiz
 
-                st.success("✅ テスト問題が生成され、過去問履歴に保存されました！")
-                
-                st.markdown("---")
-                col_q, col_a = st.columns(2)
-                with col_q:
-                    st.markdown("### 📋 生成された問題")
-                    st.info(quiz_content)
-                with col_a:
-                    st.markdown("### 💡 模範解答・解説")
-                    st.success(answer_content)
+                st.success("✅ テスト問題が正常に生成され、「My参考書（本棚）」に自動保存されました！")
 
-                export_text = f"{quiz_content}\n\n{'='*30}\n\n{answer_content}"
-                st.download_button(
-                    label="📥 このテストをテキストで保存",
-                    data=export_text,
-                    file_name=f"test_{subject}_{datetime.now().strftime('%Y%m%d')}.txt",
-                    mime="text/plain"
+    # 生成結果の表示エリア
+    if "last_generated_quiz" in st.session_state:
+        quiz_data = st.session_state["last_generated_quiz"]
+        st.divider()
+        st.markdown("### 📄 生成されたテストプレビュー")
+        
+        col_q, col_a = st.columns(2)
+        with col_q:
+            st.markdown("#### 📋 テスト問題 (Markdown)")
+            st.markdown(quiz_data["quiz_text"])
+            st.text_area("テキスト編集・確認", value=sanitize_text(quiz_data["quiz_text"]), height=250)
+
+        with col_a:
+            st.markdown("#### 💡 模範解答・解説")
+            st.success(quiz_data["answers"])
+
+        st.markdown("### 📥 保存・出力・移動")
+        btn_col1, btn_col2, btn_col3 = st.columns(3)
+
+        # 1. 日本語 PDF ダウンロード
+        with btn_col1:
+            try:
+                pdf_bytes = create_quiz_pdf(
+                    quiz_data["subject"],
+                    quiz_data["topic"],
+                    quiz_data["difficulty"],
+                    quiz_data.get("grade", ""),
+                    f"{quiz_data['quiz_text']}\n\n{quiz_data['answers']}"
                 )
+                st.download_button(
+                    label="📥 日本語 PDF をダウンロード",
+                    data=pdf_bytes,
+                    file_name=f"StarLog_{quiz_data['subject']}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            except Exception as e:
+                st.warning(f"PDF生成準備中: {e}")
+
+        # 2. テキスト保存 (.txt)
+        with btn_col2:
+            export_text = f"{quiz_data['quiz_text']}\n\n{'='*30}\n\n{quiz_data['answers']}"
+            st.download_button(
+                label="📝 テキスト保存 (.txt)",
+                data=export_text,
+                file_name=f"StarLog_{quiz_data['subject']}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+        # 3. My参考書へ移動
+        with btn_col3:
+            if st.button("📖 My参考書へ移動", use_container_width=True):
+                st.session_state["current_app_mode"] = "📖 My参考書"
+                st.rerun()
 
 elif app_mode == "📖 My参考書":
     st.markdown("<div class='main-header'>📖 My参考書</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='sub-text'><b>{st.session_state['current_user']}</b> さんのオリジナルデジタル本棚です。作成したプリントをいつでも復習できます。</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-text'><b>{st.session_state['current_user']}</b> さんのオリジナルデジタル本棚です。保存されたテストを復習できます。</div>", unsafe_allow_html=True)
 
     history_list = load_history()
     filter_mode = st.radio("👤 表示対象", ["自分のみ", "全員"], horizontal=True)
@@ -518,7 +575,7 @@ elif app_mode == "📖 My参考書":
         history_list = [x for x in history_list if x.get("created_by") == st.session_state["current_user"]]
 
     sel_school = st.radio("🏫 校種を選択", ["小学生", "中学生", "高校生"], horizontal=True)
-    filtered_h = [x for x in history_list if x.get("school_type", "小学生") == sel_school]
+    filtered_h = [x for x in history_list if x.get("school_type", "中学生") == sel_school]
 
     if "selected_book_subject" not in st.session_state:
         st.session_state["selected_book_subject"] = None
@@ -565,7 +622,7 @@ elif app_mode == "📖 My参考書":
         st.divider()
 
         if not book_items:
-            st.info(f"『{current_subj}』のプリントはまだありません。「📝 テスト作成」で作成してみましょう！")
+            st.info(f"『{current_subj}』のプリントはまだありません。「📝 問題作成」で作成してみましょう！")
         else:
             cp = st.session_state.get("book_page", 0)
             tp = len(book_items)
@@ -587,13 +644,13 @@ elif app_mode == "📖 My参考書":
 
             st.markdown(f"""
             <div style="background-color: #ffffff; color: #2c3e50; padding: 25px; border-radius: 8px; border: 1px solid #dcdde1; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px;">
-                <h3 style="color: #1E40AF; margin-top:0;">📄 {item.get('subject','')} - {item.get('topic','')}</h3>
+                <h3 style="color: #1E40AF; margin-top:0;">📄 {item.get('subject','')} ({item.get('grade','')}) - {item.get('topic','')}</h3>
                 <p style="font-size: 12px; color: #6B7280;">作成者: <b>{author}</b> | 作成日時: {item.get('created_at','')} | 難易度: {item.get('difficulty','')}</p>
                 <hr style="border: 0.5px solid #eee;">
             </div>
             """, unsafe_allow_html=True)
 
-            st.text_area("本文プレビュー", value=sanitize_text(item.get("quiz_text", "")), height=320)
+            st.text_area("本文プレビュー", value=sanitize_text(f"{item.get('quiz_text', '')}\n\n{item.get('answers', '')}"), height=320)
 
             col_pdf, col_txt, col_del = st.columns([1.5, 1.5, 1])
             try:
@@ -601,8 +658,8 @@ elif app_mode == "📖 My参考書":
                     item.get("subject", "テスト"),
                     item.get("topic", ""),
                     item.get("difficulty", ""),
-                    item.get("print_type", ""),
-                    item.get("quiz_text", "")
+                    item.get("grade", ""),
+                    f"{item.get('quiz_text', '')}\n\n{item.get('answers', '')}"
                 )
                 with col_pdf:
                     st.download_button(
@@ -620,7 +677,7 @@ elif app_mode == "📖 My参考書":
             with col_txt:
                 st.download_button(
                     label="📝 テキスト保存",
-                    data=sanitize_text(item.get("quiz_text", "")),
+                    data=sanitize_text(f"{item.get('quiz_text', '')}\n\n{item.get('answers', '')}"),
                     file_name=f"StarLog_{item.get('id', 'file')}.txt",
                     mime="text/plain",
                     use_container_width=True
@@ -642,7 +699,7 @@ elif app_mode == "🌐 WEB一問一答":
         history_list = [x for x in history_list if x.get("created_by") == st.session_state["current_user"]]
 
     if not history_list:
-        st.info("演習可能なプリントがありません。「📝 テスト作成」で問題を作成してください。")
+        st.info("演習可能なプリントがありません。「📝 問題作成」で問題を作成してください。")
     else:
         quiz_opts = {f"[{x.get('created_at','')}] ({x.get('created_by','学習者')}) {x.get('subject','')} - {x.get('topic','')[:10]}...": x for x in history_list}
         selected_label = st.selectbox("🎯 挑戦するプリントを選択", list(quiz_opts.keys()))
@@ -742,7 +799,7 @@ elif app_mode == "📷 AI手書き添削":
         with c_res:
             if st.button("🔍 AI自動添削を実行", type="primary", use_container_width=True):
                 if not test_mode and not (current_api_key or st.session_state.get("user_api_key")):
-                    st.error("APIキーが設定されていません。サイドバーまたは.streamlit/secrets.tomlをご確認ください。")
+                    st.error("APIキーが設定されていません。サイドバーをご確認ください。")
                 else:
                     with st.spinner("AI Visionが筆跡・途中の計算式・回答論理を解析中..."):
                         if test_mode:
@@ -751,10 +808,10 @@ elif app_mode == "📷 AI手書き添削":
                                 "total_score": 85,
                                 "max_score": 100,
                                 "questions": [
-                                    {"num": "問1", "status": "⭕️", "score": "40/40", "comment": "公式の適用と論理の展開が完璧です！"},
-                                    {"num": "問2", "status": "🔺", "score": "45/60", "comment": "途中式は合っていますが、移項時の符号ミスがあります。"}
+                                    {"num": "問1", "status": "⭕️", "score": "40/40", "comment": "基本概念の理解と説明が完璧です！"},
+                                    {"num": "問2", "status": "🔺", "score": "45/60", "comment": "考え方は正しいですが記述の一部に言葉足らずの点があります。"}
                                 ],
-                                "overall_feedback": "基礎理解は非常に高いです！問2のような計算ミスを防ぐための検算習慣をつけましょう。"
+                                "overall_feedback": "全体として非常に高い理解度です！記述問題の結論をより具体的にまとめると満点が狙えます。"
                             }
                         else:
                             vision_prompt = (
@@ -789,23 +846,21 @@ elif app_mode == "📷 AI手書き添削":
 
 elif app_mode == "📈 学習アナリティクス":
     st.markdown("<div class='main-header'>📈 学習アナリティクス</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-text'>Notebook連携データおよび添削結果から、学習の進捗と達成度を可視化します。</div>", unsafe_allow_html=True)
-
-    nb_pts = st.session_state.get("default_pts", 0)
+    st.markdown("<div class='sub-text'>作成されたテスト履歴や演習状況から、学習の進捗と達成度を可視化します。</div>", unsafe_allow_html=True)
 
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         st.metric("🎓 現在のアカウント", st.session_state["current_user"])
     with col_b:
-        st.metric("⭐ Notebook獲得ポイント", f"{nb_pts} pt")
+        st.metric("📝 作成したプリント数", f"{len([x for x in load_history() if x.get('created_by') == st.session_state['current_user']])} 件")
     with col_c:
-        st.metric("📝 過去作成テスト数", f"{len(load_history())} 件")
+        st.metric("📚 共有ライブラリ全体", f"{len(load_history())} 件")
 
     st.divider()
-    st.markdown("### 📊 単元別理解度チェック")
-    st.progress(0.85, text="数学 - 二次関数とグラフ (85%)")
-    st.progress(0.60, text="英語 - 関係代名詞の理解 (60%)")
-    st.progress(0.40, text="理科 - 化学結合 (40%)")
+    st.markdown("### 📊 単元別達成度状況")
+    st.progress(0.85, text="理科 - 植物のつくりと働き (85%)")
+    st.progress(0.70, text="数学 - 二次関数とグラフ (70%)")
+    st.progress(0.50, text="英語 - 関係代名詞の理解 (50%)")
 
 elif app_mode == "👤 マイページ":
     st.markdown("<div class='main-header'>👤 マイページ</div>", unsafe_allow_html=True)
