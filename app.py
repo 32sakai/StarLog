@@ -74,28 +74,35 @@ if not st.session_state.authenticated:
 # ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
-# 🔑 サイドバー：APIキーの手動設定機能
+# 🔑 サイドバー：APIキー手動設定（入力時のみ一時上書き）
 # ------------------------------------------------------------------------------
 with st.sidebar:
     st.header("⚙️ 設定")
-    
-    # 既存の環境変数やsecretsがあればそれをデフォルト値にし、なければ空欄にする
-    default_api_key = os.environ.get("GEMINI_API_KEY", "")
-    
-    # APIキー入力欄（パスワード形式で非表示）
+
+    # 1. 元から環境変数や secrets に設定されている「いつものAPIキー」を取得
+    default_key = os.environ.get("GEMINI_API_KEY", "")
+
+    # 2. 画面上の入力欄（入力前は空欄・白枠）
     user_api_key = st.text_input(
         "Google Gemini API Key",
-        value=default_api_key,
+        value="",  # 白枠（空欄）にする
         type="password",
-        help="Gemini APIキーを入力してください"
+        placeholder="変更時のみ入力（普段は空欄でOK）",
+        help="別のAPIキーを使いたい時だけ入力してください。空欄のままだと設定済みのAPIキーが使われます。",
     )
-    
-    # セッションまたは環境変数に反映
-    if user_api_key:
-        os.environ["GEMINI_API_KEY"] = user_api_key
-        st.caption("✅ APIキーが適用されています")
+
+    # 3. 入力の有無に応じて自動切り替え
+    if user_api_key.strip():
+        # 手動で何か入力された場合は、そのキーを使用
+        os.environ["GEMINI_API_KEY"] = user_api_key.strip()
+        st.success("🔑 入力されたAPIキーに切り替えました")
     else:
-        st.warning("⚠️ APIキーを設定してください")
+        # 空欄の場合は、いつものAPIキーをセット
+        if default_key:
+            os.environ["GEMINI_API_KEY"] = default_key
+            st.caption("✅ 標準のAPIキーで動作中")
+        else:
+            st.warning("⚠️ APIキーが未設定です")
 
 st.sidebar.divider()
 
