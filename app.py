@@ -46,7 +46,7 @@ except ImportError:
 # 🔒 簡易パスワード認証（ログイン機能）
 # ==============================================================================
 # 正解のパスワードをここに設定
-CORRECT_PASSWORD = "ここに4つの文字列を連結した答えを入れる"
+CORRECT_PASSWORD = "Y STARLOG"
 
 # セッション状態の初期化
 if "authenticated" not in st.session_state:
