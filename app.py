@@ -1,26 +1,29 @@
 import io
-from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+import json
 import os
+import re
+import time
+from datetime import datetime
+from io import BytesIO
+
+from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+import streamlit as st
 
 # 🔤 日本語フォント（IPAexゴシック）の登録
-FONT_NAME = "Helvetica"
 font_path = "ipaexg.ttf"
 if os.path.exists(font_path):
     pdfmetrics.registerFont(TTFont("IPAexGothic", font_path))
     FONT_NAME = "IPAexGothic"
-import re
-import json
-import time
-from datetime import datetime
-import streamlit as st
+else:
+    FONT_NAME = "Helvetica"
 
 # PIL (Pillow) 読み込みチェック
 try:
     from PIL import Image
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -343,13 +346,13 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     y = height - margin
 
     # 1. ヘッダー（タイトル）
-    p.setFont(FONT_NAME, 16)
+    p.setFont(FONT_NAME, 16)  # ★ FONT_NAME を使用
     title_text = f"【StarLog 学習ナビ】 {subject} - {topic}"
     p.drawString(margin, y, title_text)
 
     y -= 25
     # 2. サブ情報
-    p.setFont(FONT_NAME, 10)
+    p.setFont(FONT_NAME, 10)  # ★ FONT_NAME を使用
     info_text = f"難易度: {difficulty} | 形式: {print_type}"
     p.drawString(margin, y, info_text)
 
@@ -358,37 +361,35 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     p.line(margin, y, width - margin, y)
     y -= 25
 
-    # 本文のフォント設定（★必ず FONT_NAME を使用）
-    p.setFont(FONT_NAME, 11)
+    # 本文のフォント設定
+    p.setFont(FONT_NAME, 11)  # ★ FONT_NAME を使用
 
     # テキストの行分割
     lines = quiz_text.split("\n")
-    line_height = 16  # 行間
+    line_height = 16
 
     for line in lines:
-        # ★ 模範解答・解説編の検知で改ページ
+        # 模範解答・解説編の検知で改ページ
         if "=== 模範解答・解説編 ===" in line and y < height - margin - 50:
             p.showPage()
             y = height - margin
 
             # 解答ページのヘッダー描画
-            p.setFont(FONT_NAME, 14)
+            p.setFont(FONT_NAME, 14)  # ★ FONT_NAME を使用
             p.drawString(
                 margin, y, f"【StarLog 学習ナビ】 {subject} - 模範解答・解説"
             )
             y -= 20
             p.line(margin, y, width - margin, y)
             y -= 25
-            p.setFont(FONT_NAME, 11)
 
-        # 通常の自動改ページ（ページ下部に達した場合）
+        # 通常の自動改ページ
         elif y < margin + 20:
             p.showPage()
             y = height - margin
-            p.setFont(FONT_NAME, 11)
 
-        # 1行描画（★必ず FONT_NAME を指定して描画）
-        p.setFont(FONT_NAME, 11)
+        # 1行描画
+        p.setFont(FONT_NAME, 11)  # ★ ここが重要！毎行 FONT_NAME を指定
         p.drawString(margin, y, line)
         y -= line_height
 
