@@ -332,7 +332,7 @@ def parse_quiz_to_questions(quiz_text):
     return cards
 
 # ==============================================================================
-# 📄 PDF生成処理（問題と解答のページ分離対応）
+# 📄 PDF生成処理（日本語フォント完全対応版）
 # ==============================================================================
 def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     buffer = BytesIO()
@@ -342,13 +342,13 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     margin = 50
     y = height - margin
 
-    # ヘッダー（タイトル）
+    # 1. ヘッダー（タイトル）
     p.setFont(FONT_NAME, 16)
     title_text = f"【StarLog 学習ナビ】 {subject} - {topic}"
     p.drawString(margin, y, title_text)
 
     y -= 25
-    # サブ情報
+    # 2. サブ情報
     p.setFont(FONT_NAME, 10)
     info_text = f"難易度: {difficulty} | 形式: {print_type}"
     p.drawString(margin, y, info_text)
@@ -358,46 +358,44 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     p.line(margin, y, width - margin, y)
     y -= 25
 
-    # 本文のフォント設定
+    # 本文のフォント設定（★必ず FONT_NAME を使用）
     p.setFont(FONT_NAME, 11)
 
-    # テキストの整形・クリーンアップ
-    clean_text = sanitize_text(quiz_text)
-    lines = clean_text.split('\n')
-
+    # テキストの行分割
+    lines = quiz_text.split("\n")
     line_height = 16  # 行間
 
     for line in lines:
-        # ★ 模範解答の見出しが来たら強制的に改ページ
-        # (AIの出力に合わせてキーワードを調整してください)
-        is_answer_header = any(keyword in line for keyword in ["【解答】", "【模範解答】", "【解答と解説】", "=== 模範解答・解説編 ===", "■ 模範解答"])
-        
-        if is_answer_header and y < height - margin - 50:
+        # ★ 模範解答・解説編の検知で改ページ
+        if "=== 模範解答・解説編 ===" in line and y < height - margin - 50:
             p.showPage()
             y = height - margin
-            p.setFont(FONT_NAME, 11)
-            
-            # 解答ページのヘッダーを追加（分かりやすくするため）
+
+            # 解答ページのヘッダー描画
             p.setFont(FONT_NAME, 14)
-            p.drawString(margin, y, f"【StarLog 学習ナビ】 {subject} - 模範解答・解説")
+            p.drawString(
+                margin, y, f"【StarLog 学習ナビ】 {subject} - 模範解答・解説"
+            )
             y -= 20
             p.line(margin, y, width - margin, y)
             y -= 25
             p.setFont(FONT_NAME, 11)
 
-        # 通常のページ下部判定（自動改ページ）
+        # 通常の自動改ページ（ページ下部に達した場合）
         elif y < margin + 20:
             p.showPage()
             y = height - margin
             p.setFont(FONT_NAME, 11)
 
+        # 1行描画（★必ず FONT_NAME を指定して描画）
+        p.setFont(FONT_NAME, 11)
         p.drawString(margin, y, line)
         y -= line_height
 
     p.save()
     buffer.seek(0)
     return buffer.getvalue()
-
+    
 # ------------------------------------------------------------------------------
 # 5. Gemini API 安全呼び出し関数
 # ------------------------------------------------------------------------------
