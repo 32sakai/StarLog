@@ -74,6 +74,32 @@ if not st.session_state.authenticated:
 # ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
+# 🔑 サイドバー：APIキーの手動設定機能
+# ------------------------------------------------------------------------------
+with st.sidebar:
+    st.header("⚙️ 設定")
+    
+    # 既存の環境変数やsecretsがあればそれをデフォルト値にし、なければ空欄にする
+    default_api_key = os.environ.get("GEMINI_API_KEY", "")
+    
+    # APIキー入力欄（パスワード形式で非表示）
+    user_api_key = st.text_input(
+        "Google Gemini API Key",
+        value=default_api_key,
+        type="password",
+        help="Gemini APIキーを入力してください"
+    )
+    
+    # セッションまたは環境変数に反映
+    if user_api_key:
+        os.environ["GEMINI_API_KEY"] = user_api_key
+        st.caption("✅ APIキーが適用されています")
+    else:
+        st.warning("⚠️ APIキーを設定してください")
+
+st.sidebar.divider()
+
+# ------------------------------------------------------------------------------
 # 1. ページ基本設定 & カスタムCSS
 # ------------------------------------------------------------------------------
 st.set_page_config(
