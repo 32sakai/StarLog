@@ -335,7 +335,7 @@ def parse_quiz_to_questions(quiz_text):
     return cards
 
 # ==============================================================================
-# 📄 PDF生成処理（日本語フォント完全対応版）
+# 📄 PDF生成処理（日本語トーフ化完全防止版）
 # ==============================================================================
 def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     buffer = BytesIO()
@@ -345,14 +345,14 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     margin = 50
     y = height - margin
 
-    # 1. ヘッダー（タイトル）
-    p.setFont(FONT_NAME, 16)  # ★ FONT_NAME を使用
+    # --- 1. ヘッダー（タイトル） ---
+    p.setFont(FONT_NAME, 16)  # 必ず FONT_NAME を指定
     title_text = f"【StarLog 学習ナビ】 {subject} - {topic}"
     p.drawString(margin, y, title_text)
 
     y -= 25
-    # 2. サブ情報
-    p.setFont(FONT_NAME, 10)  # ★ FONT_NAME を使用
+    # --- 2. サブ情報 ---
+    p.setFont(FONT_NAME, 10)  # 必ず FONT_NAME を指定
     info_text = f"難易度: {difficulty} | 形式: {print_type}"
     p.drawString(margin, y, info_text)
 
@@ -361,21 +361,23 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     p.line(margin, y, width - margin, y)
     y -= 25
 
-    # 本文のフォント設定
-    p.setFont(FONT_NAME, 11)  # ★ FONT_NAME を使用
-
-    # テキストの行分割
+    # --- 3. 本文の描画 ---
     lines = quiz_text.split("\n")
-    line_height = 16
+    line_height = 16  # 行間
 
     for line in lines:
-        # 模範解答・解説編の検知で改ページ
+        # 空行のスキップ処理
+        if not line.strip():
+            y -= line_height / 2
+            continue
+
+        # ★ 模範解答・解説編の検知で改ページ
         if "=== 模範解答・解説編 ===" in line and y < height - margin - 50:
             p.showPage()
             y = height - margin
 
             # 解答ページのヘッダー描画
-            p.setFont(FONT_NAME, 14)  # ★ FONT_NAME を使用
+            p.setFont(FONT_NAME, 14)
             p.drawString(
                 margin, y, f"【StarLog 学習ナビ】 {subject} - 模範解答・解説"
             )
@@ -383,13 +385,13 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
             p.line(margin, y, width - margin, y)
             y -= 25
 
-        # 通常の自動改ページ
-        elif y < margin + 20:
+        # 通常の自動改ページ（ページ下部に達した場合）
+        elif y < margin + 30:
             p.showPage()
             y = height - margin
 
-        # 1行描画
-        p.setFont(FONT_NAME, 11)  # ★ ここが重要！毎行 FONT_NAME を指定
+        # ★★★ 最重要：毎行描画する前に確実に IPAexGothic をセットする ★★★
+        p.setFont(FONT_NAME, 11)
         p.drawString(margin, y, line)
         y -= line_height
 
