@@ -405,39 +405,37 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     buffer.seek(0)
     return buffer.getvalue()
     
-# ------------------------------------------------------------------------------
-# 5. Gemini API 安全呼び出し関数
-# ------------------------------------------------------------------------------
-def get_effective_api_key():
-    key = ""
-    if "GEMINI_API_KEY" in st.secrets:
-        key = st.secrets["GEMINI_API_KEY"]
-    elif os.environ.get("GEMINI_API_KEY"):
-        key = os.environ.get("GEMINI_API_KEY")
-    return re.sub(r'[^\x00-\x7F]+', '', key).strip() if key else ""
+# ==============================================================================
+# 🤖 Gemini API 呼び出し（Secrets 連携・完全安全版）
+# ==============================================================================
+import google.generativeai as genai
 
-def call_gemini_api(contents, sys_inst=None, retries=3):
-    api_key = get_effective_api_key()
+# StreamlitのSecretsまたはサイドバー入力からキーを取得
+api_key = user_api_key.strip() if user_api_key.strip() else st.secrets.get("GEMINI_API_KEY", "")
+
+if st.button("問題作成"):
     if not api_key:
-        raise ValueError("APIキーが設定されていません。.streamlit/secrets.toml を確認してください。")
+        st.error("⚠️ APIキーが設定されていません。StreamlitのSecretsを設定するか、サイドバーに入力してください。")
+        st.stop()
 
-    for attempt in range(retries):
+    with st.spinner("問題を生成中..."):
         try:
-            if GENAI_CLIENT_AVAILABLE:
-                client = genai.Client(api_key=api_key)
-                cfg = types.GenerateContentConfig(system_instruction=sys_inst) if sys_inst else None
-                return client.models.generate_content(model=DEFAULT_MODEL, contents=contents, config=cfg).text
-            elif GENAI_LEGACY_AVAILABLE:
-                g_legacy.configure(api_key=api_key)
-                return g_legacy.GenerativeModel(DEFAULT_MODEL, system_instruction=sys_inst).generate_content(contents).text
-            else:
-                raise ImportError("Google GenAI ライブラリがインストールされていません。")
-        except Exception as e:
-            if ("503" in str(e) or "UNAVAILABLE" in str(e)) and attempt < retries - 1:
-                time.sleep(2 * (attempt + 1))
-                continue
-            raise e
+            # Secretsから取得したキーを設定
+            genai.configure(api_key=api_key)
 
+            # 安定版モデル指定
+            model = genai.GenerativeModel("gemini-2.5-flash")
+
+            # 問題生成
+            response = model.generate_content(prompt)
+            quiz_text = response.text
+
+            st.success("問題の作成に成功しました！")
+
+        except Exception as e:
+            st.error(f"❌ API通信エラー詳細:\n\n{e}")
+            st.stop()
+            
 # ------------------------------------------------------------------------------
 # 6. アプリケーション本体 / UI
 # ------------------------------------------------------------------------------
