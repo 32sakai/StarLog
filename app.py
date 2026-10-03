@@ -12,13 +12,20 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 import streamlit as st
 
-# 🔤 日本語フォント（IPAexゴシック）の登録
+# ------------------------------------------------------------------------------
+# 🔤 日本語フォントの確実な登録
+# ------------------------------------------------------------------------------
+FONT_NAME = "Helvetica"
 font_path = "ipaexg.ttf"
+
 if os.path.exists(font_path):
-    pdfmetrics.registerFont(TTFont("IPAexGothic", font_path))
-    FONT_NAME = "IPAexGothic"
+    try:
+        pdfmetrics.registerFont(TTFont("IPAexGothic", font_path))
+        FONT_NAME = "IPAexGothic"
+    except Exception as e:
+        print(f"フォント登録エラー: {e}")
 else:
-    FONT_NAME = "Helvetica"
+    print("⚠️ ipaexg.ttf が見つかりません。カレントディレクトリを確認してください。")
 
 # PIL (Pillow) 読み込みチェック
 try:
@@ -335,7 +342,7 @@ def parse_quiz_to_questions(quiz_text):
     return cards
 
 # ==============================================================================
-# 📄 PDF生成処理（日本語トーフ化完全防止版）
+# 📄 PDF生成処理（IPAexGothic 直接指定版）
 # ==============================================================================
 def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     buffer = BytesIO()
@@ -346,13 +353,13 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     y = height - margin
 
     # --- 1. ヘッダー（タイトル） ---
-    p.setFont(FONT_NAME, 16)  # 必ず FONT_NAME を指定
+    p.setFont("IPAexGothic", 16)  # ★ 直接 IPAexGothic を指定
     title_text = f"【StarLog 学習ナビ】 {subject} - {topic}"
     p.drawString(margin, y, title_text)
 
     y -= 25
     # --- 2. サブ情報 ---
-    p.setFont(FONT_NAME, 10)  # 必ず FONT_NAME を指定
+    p.setFont("IPAexGothic", 10)  # ★ 直接 IPAexGothic を指定
     info_text = f"難易度: {difficulty} | 形式: {print_type}"
     p.drawString(margin, y, info_text)
 
@@ -377,7 +384,7 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
             y = height - margin
 
             # 解答ページのヘッダー描画
-            p.setFont(FONT_NAME, 14)
+            p.setFont("IPAexGothic", 14)  # ★ 直接 IPAexGothic を指定
             p.drawString(
                 margin, y, f"【StarLog 学習ナビ】 {subject} - 模範解答・解説"
             )
@@ -390,8 +397,8 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
             p.showPage()
             y = height - margin
 
-        # ★★★ 最重要：毎行描画する前に確実に IPAexGothic をセットする ★★★
-        p.setFont(FONT_NAME, 11)
+        # ★★★ 最重要：描画直前に直接 IPAexGothic をセット ★★★
+        p.setFont("IPAexGothic", 11)  # ★ 直接 IPAexGothic を指定
         p.drawString(margin, y, line)
         y -= line_height
 
@@ -535,6 +542,12 @@ if app_mode == "📝 問題作成":
 2. 大問の見出し行は、必ず「問1 次の文章を読み、あとの問いに答えなさい。」のように【問1】などの記号のすぐ後ろに全体指示文を書いてください。
 3. 小問は必ず「（1）」の形式で記述してください。
 4. 模範解答編でも「問1」「（1）」と大問・小問番号を正しく対応させて出力してください。
+
+【出力形式の絶対ルール】
+1. LaTeX表記（$ や $$ など）は絶対に絶対に使用しないでください。
+2. 分数は $\frac{a}{b}$ ではなく、a/b または「b分のa」と表記してください。
+3. ルートや累乗も特殊記号を使わず、プレーンテキストで読める形式にしてください。
+ (例: x^2 や √x)
 
 【構成例】
 【問題編】
