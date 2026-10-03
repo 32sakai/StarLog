@@ -342,7 +342,7 @@ def parse_quiz_to_questions(quiz_text):
     return cards
 
 # ==============================================================================
-# 📄 PDF生成処理（IPAexGothic 直接指定版）
+# 📄 PDF生成処理（長い文章の自動折り返し＆A4最適化版）
 # ==============================================================================
 def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     buffer = BytesIO()
@@ -350,57 +350,56 @@ def create_quiz_pdf(subject, topic, difficulty, print_type, quiz_text):
     width, height = A4
 
     margin = 50
+    max_width = width - (margin * 2)  # 印字可能幅
     y = height - margin
+    line_height = 18  # 行間
 
-    # --- 1. ヘッダー（タイトル） ---
-    p.setFont("IPAexGothic", 16)  # ★ 直接 IPAexGothic を指定
-    title_text = f"【StarLog 学習ナビ】 {subject} - {topic}"
-    p.drawString(margin, y, title_text)
+    # 1行あたりの最大文字数（A4余白50pt、11ptフォントの場合、全角で約35文字）
+    MAX_CHARS_PER_LINE = 35
 
-    y -= 25
-    # --- 2. サブ情報 ---
-    p.setFont("IPAexGothic", 10)  # ★ 直接 IPAexGothic を指定
-    info_text = f"難易度: {difficulty} | 形式: {print_type}"
-    p.drawString(margin, y, info_text)
-
-    # 区切り線
-    y -= 15
-    p.line(margin, y, width - margin, y)
-    y -= 25
-
-    # --- 3. 本文の描画 ---
     lines = quiz_text.split("\n")
-    line_height = 16  # 行間
 
     for line in lines:
-        # 空行のスキップ処理
+        # 空行の処理
         if not line.strip():
             y -= line_height / 2
             continue
 
-        # ★ 模範解答・解説編の検知で改ページ
+        # 模範解答・解説編の検知で改ページ
         if "=== 模範解答・解説編 ===" in line and y < height - margin - 50:
             p.showPage()
             y = height - margin
 
-            # 解答ページのヘッダー描画
-            p.setFont("IPAexGothic", 14)  # ★ 直接 IPAexGothic を指定
+            # 解答ページのヘッダー
+            p.setFont("IPAexGothic", 14)
             p.drawString(
                 margin, y, f"【StarLog 学習ナビ】 {subject} - 模範解答・解説"
             )
             y -= 20
             p.line(margin, y, width - margin, y)
             y -= 25
+            continue
 
-        # 通常の自動改ページ（ページ下部に達した場合）
-        elif y < margin + 30:
-            p.showPage()
-            y = height - margin
+        # 長い文章を MAX_CHARS_PER_LINE 文字ごとに分割して描画
+        sub_lines = [
+            line[i : i + MAX_CHARS_PER_LINE]
+            for i in range(0, len(line), MAX_CHARS_PER_LINE)
+        ]
 
-        # ★★★ 最重要：描画直前に直接 IPAexGothic をセット ★★★
-        p.setFont("IPAexGothic", 11)  # ★ 直接 IPAexGothic を指定
-        p.drawString(margin, y, line)
-        y -= line_height
+        for idx, sub_line in enumerate(sub_lines):
+            # ページ下部に達した場合は改ページ
+            if y < margin + 30:
+                p.showPage()
+                y = height - margin
+
+            # 描画直前に必ず IPAexGothic をセット
+            p.setFont("IPAexGothic", 11)
+
+            # 折り返された2行目以降は少しインデント（文字下げ）して見やすくする
+            x_pos = margin if idx == 0 else margin + 15
+            p.drawString(x_pos, y, sub_line)
+
+            y -= line_height
 
     p.save()
     buffer.seek(0)
