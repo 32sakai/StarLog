@@ -1,0 +1,22 @@
+from google import genai
+
+# 1. APIキーをセットして準備
+client = genai.Client(api_key="AQ.Ab8RN6LY21iam0r_2mRBTY_uEENdhjQm9l9UAfd4Zm4JtGoZtQ")
+
+# 2. 問題を作ってほしい文章（テスト用）
+sample_text = """
+日本の首都は東京です。
+東京には東京タワーやスカイツリーなどの有名な観光名所があり、
+多くの観光客が訪れます。
+"""
+
+print("Geminiが問題を考えています...\n")
+
+# 3. Geminiに「問題を作って」と頼む
+response = client.models.generate_content(
+    model="gemini-1.5-flash",
+    contents=f"以下の文章を読んで、内容に関する3択問題を1問作成してください。正解と解説もつけてください。\n\n【文章】\n{sample_text}"
+)
+
+# 4. 返ってきた結果を表示
+print(response.text)
